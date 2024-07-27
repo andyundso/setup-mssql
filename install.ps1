@@ -1,6 +1,7 @@
 param (
     [ValidateSet("sqlcmd", "sqlengine")]
     [string[]]$Components,
+    [bool]$ForceEncryption,
     [string]$SaPassword,
     [ValidateSet("2017")]
     [string]$Version
@@ -9,7 +10,7 @@ param (
 function Wait-ForContainer {
     $checkInterval = 5
     $containerName = "sql"
-    $timeout = 120
+    $timeout = 60
 
     $startTime = Get-Date
     Write-Host "Waiting for the container '$containerName' to be healthy..."
@@ -73,8 +74,31 @@ if ("sqlengine" -in $Components) {
             exit 1
         }
 
+        if ($ForceEncryption) {
+            Write-Output "Force encryption is set, generating self-signed certificate ..."
+    
+            # SOURCE: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-security?view=sql-server-ver16#encrypt-connections-to-sql-server-linux-containers
+            & mkdir -p /opt/mssql
+            & openssl req -x509 -nodes -newkey rsa:2048 -subj '/CN=sql1.contoso.com' -keyout /opt/mssql/mssql.key -out /opt/mssql/mssql.pem -days 365
+            $MssqlConf = @'
+[network]
+tlscert = /etc/ssl/certs/mssql.pem
+tlskey = /etc/ssl/private/mssql.key
+tlsprotocols = 1.2
+forceencryption = 1
+'@
+    
+            Set-Content -Path /opt/mssql/mssql.conf -Value $MssqlConf
+            & sudo chmod -R 775 /opt/mssql
+    
+            Copy-Item -Path /opt/mssql/mssql.pem -Destination /usr/share/ca-certificates/mssql.crt
+            & sudo dpkg-reconfigure ca-certificates 
+                
+            $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/etc/ssl/certs/mssql.pem -v /opt/mssql/mssql.key:/etc/ssl/private/mssql.key"
+        }
+
         Write-Output "Starting a Docker Container"
-        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" -e `"MSSQL_PID=Express`" --health-cmd=`"/opt/mssql-tools/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 -d `"mcr.microsoft.com/mssql/server:$Version-latest`""
+        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" -e `"MSSQL_PID=Express`" --health-cmd=`"/opt/mssql-tools/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-latest`""
         Wait-ForContainer
     }
 
@@ -88,9 +112,26 @@ if ("sqlengine" -in $Components) {
 
         Write-Host "Configuring SQL Express ..."
         stop-service MSSQL`$SQLEXPRESS
-        set-itemproperty -path 'HKLM:\software\microsoft\microsoft sql server\mssql14.SQLEXPRESS\mssqlserver\supersocketnetlib\tcp\ipall' -name tcpdynamicports -value ''
-        set-itemproperty -path 'HKLM:\software\microsoft\microsoft sql server\mssql14.SQLEXPRESS\mssqlserver\supersocketnetlib\tcp\ipall' -name tcpport -value 1433
-        set-itemproperty -path 'HKLM:\software\microsoft\microsoft sql server\mssql14.SQLEXPRESS\mssqlserver\' -name LoginMode -value 2
+
+        $InstancePath = "HKLM:\software\microsoft\microsoft sql server\mssql14.SQLEXPRESS\mssqlserver"
+        $SuperSocketNetLibPath = "$InstancePath\supersocketnetlib"
+        set-itemproperty -path "$SuperSocketNetLibPath\tcp\ipall" -name tcpdynamicports -value ''
+        set-itemproperty -path "$SuperSocketNetLibPath\tcp\ipall" -name tcpport -value 1433
+        set-itemproperty -path $InstancePath -name LoginMode -value 2
+
+        # SOURCE: https://blogs.infosupport.com/configuring-sql-server-encrypted-connections-using-powershell/
+        if ($ForceEncryption) {
+            Write-Output "Force encryption is set, configuring SQL server to do so ..."
+
+            $params = @{
+                DnsName           = 'sql1.contoso.com'
+                CertStoreLocation = 'Cert:\LocalMachine\My'
+            }
+            $Certificate = New-SelfSignedCertificate @params
+
+            Set-ItemProperty $SuperSocketNetLibPath -Name "Certificate" -Value $Certificate.Thumbprint.ToLowerInvariant()
+            Set-ItemProperty $SuperSocketNetLibPath -Name "ForceEncryption" -Value 1
+        }
 
         Write-Host "Starting SQL Express ..."
         start-service MSSQL`$SQLEXPRESS
