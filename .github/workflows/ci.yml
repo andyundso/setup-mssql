@@ -1,0 +1,44 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    strategy:
+      matrix:
+        os:
+          # ignore ARM64 flavours
+          - macos-12-large
+          - macos-13-large
+          - macos-14-large
+          - ubuntu-20.04
+          - ubuntu-22.04
+          - ubuntu-24.04
+          - windows-2019
+          - windows-2022
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      # cloning into "root" does not work when trying to call the action from itself
+      # inspired by Microsoft: https://github.com/microsoft/action-python/blob/c8ec939994d7ed2ec77b7bbe59ed5f5b72fb5607/.github/workflows/test.yml#L21
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: action
+          clean: true
+
+      - name: Run Action
+        uses: ./action
+        with:
+          components: sqlcmd
+
+      - name: Run tests
+        run: |
+          action/test.ps1
+        shell: pwsh

@@ -1,0 +1,19 @@
+name: "Setup MSSQL"
+branding:
+  icon: "database"
+  color: "yellow"
+description: "Installs an MSSQL server and client"
+inputs:
+  components:
+    description: "The components to install"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - shell: pwsh
+      run: |
+        $params = @{
+            Components = ("${{ inputs.components }}" -split ",").Trim()
+        }
+
+        ${{ github.action_path }}/install.ps1 @params
