@@ -14,14 +14,16 @@ jobs:
       matrix:
         os:
           # ignore ARM64 flavours
-          - macos-12-large
-          - macos-13-large
-          - macos-14-large
           - ubuntu-20.04
           - ubuntu-22.04
           - ubuntu-24.04
           - windows-2019
           - windows-2022
+        version:
+          - 2017
+        exclude:
+          - os: ubuntu-24.04
+            version: 2017
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -36,9 +38,13 @@ jobs:
       - name: Run Action
         uses: ./action
         with:
-          components: sqlcmd
+          components: sqlcmd,sqlengine
+          sa-password: "bHuZH81%cGC6"
+          version: ${{ matrix.version }}
 
       - name: Run tests
         run: |
           action/test.ps1
         shell: pwsh
+        env:
+          SA_PASSWORD: "bHuZH81%cGC6"

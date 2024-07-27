@@ -7,6 +7,12 @@ inputs:
   components:
     description: "The components to install"
     required: true
+  sa-password:
+    description: "The SA password for the SQL instance"
+    required: true
+  version:
+    description: "The version of the SQL instance"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -14,6 +20,10 @@ runs:
       run: |
         $params = @{
             Components = ("${{ inputs.components }}" -split ",").Trim()
+            SaPassword = "${{ inputs.sa-password }}"
+            Version = "${{ inputs.version }}"
         }
 
         ${{ github.action_path }}/install.ps1 @params
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: "1"
