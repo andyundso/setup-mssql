@@ -7,6 +7,10 @@ inputs:
   components:
     description: "The components to install"
     required: true
+  force-encryption:
+    description: "Should the server force encryption?"
+    required: false
+    default: "false"
   sa-password:
     description: "The SA password for the SQL instance"
     required: true
@@ -20,6 +24,7 @@ runs:
       run: |
         $params = @{
             Components = ("${{ inputs.components }}" -split ",").Trim()
+            ForceEncryption = "${{ inputs.force-encryption }}" -eq "true"
             SaPassword = "${{ inputs.sa-password }}"
             Version = "${{ inputs.version }}"
         }
