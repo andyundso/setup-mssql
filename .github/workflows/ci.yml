@@ -24,6 +24,7 @@ jobs:
           - windows-2022
         version:
           - 2017
+          - 2019
         exclude:
           - force-encryption: "true"
             os: ubuntu-24.04
