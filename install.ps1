@@ -3,7 +3,7 @@ param (
     [string[]]$Components,
     [bool]$ForceEncryption,
     [string]$SaPassword,
-    [ValidateSet("2017")]
+    [ValidateSet("2017", "2019")]
     [string]$Version
 )
 
@@ -68,7 +68,7 @@ if ("sqlengine" -in $Components) {
         #                 Depends: python (>= 2.7.0) but it is not installable
         #                 Depends: libldap-2.4-2 but it is not installable
         # E: Unable to correct problems, you have held broken packages.
-        if ($IsUbuntu2404) {
+        if ($IsUbuntu2404 -And $Version -Eq "2017") {
             Write-Error "MSSQL 2017 is not available on Ubuntu 24.04."
             Write-Error "See more information at https://github.com/microsoft/mssql-docker/issues/868"
             exit 1
@@ -80,10 +80,14 @@ if ("sqlengine" -in $Components) {
             # SOURCE: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-security?view=sql-server-ver16#encrypt-connections-to-sql-server-linux-containers
             & mkdir -p /opt/mssql
             & openssl req -x509 -nodes -newkey rsa:2048 -subj '/CN=sql1.contoso.com' -keyout /opt/mssql/mssql.key -out /opt/mssql/mssql.pem -days 365
+            
+            # Microsoft recommends to mount the SQL certificates at /etc/ssl/certs and /etc/ssl/private
+            # However, with SQL Server 2019, this always results in a file permission error
+            # Also mounting it into the /var/opt/mssql directory works just fine
             $MssqlConf = @'
 [network]
-tlscert = /etc/ssl/certs/mssql.pem
-tlskey = /etc/ssl/private/mssql.key
+tlscert = /var/opt/mssql/mssql.pem
+tlskey = /var/opt/mssql/mssql.key
 tlsprotocols = 1.2
 forceencryption = 1
 '@
@@ -94,7 +98,7 @@ forceencryption = 1
             Copy-Item -Path /opt/mssql/mssql.pem -Destination /usr/share/ca-certificates/mssql.crt
             & sudo dpkg-reconfigure ca-certificates 
                 
-            $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/etc/ssl/certs/mssql.pem -v /opt/mssql/mssql.key:/etc/ssl/private/mssql.key"
+            $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/var/opt/mssql/mssql.pem -v /opt/mssql/mssql.key:/var/opt/mssql/mssql.key"
         }
 
         Write-Output "Starting a Docker Container"
@@ -106,14 +110,25 @@ forceencryption = 1
         Write-Output "Downloading and installing SQL Server"
         New-Item -ItemType Directory -Path "C:\Downloads"
 
-        Invoke-WebRequest "https://download.microsoft.com/download/E/F/2/EF23C21D-7860-4F05-88CE-39AA114B014B/SQLEXPR_x64_ENU.exe" -OutFile "C:\Downloads\mssql.exe"
+        switch ($Version) {
+            "2017" {
+                $DownloadUrl = "https://download.microsoft.com/download/E/F/2/EF23C21D-7860-4F05-88CE-39AA114B014B/SQLEXPR_x64_ENU.exe"
+                $MajorVersion = 14
+            }
+            "2019" {
+                $DownloadUrl = "https://download.microsoft.com/download/7/c/1/7c14e92e-bdcb-4f89-b7cf-93543e7112d1/SQLEXPR_x64_ENU.exe"
+                $MajorVersion = 15
+            }
+        }
+
+        Invoke-WebRequest $DownloadUrl -OutFile "C:\Downloads\mssql.exe"
         Start-Process -Wait -FilePath "C:\Downloads\mssql.exe" -ArgumentList /qs, /x:"C:\Downloads\setup"
         C:\Downloads\setup\setup.exe /q /ACTION=Install /INSTANCENAME=SQLEXPRESS /FEATURES=SQLEngine /UPDATEENABLED=0 /SQLSVCACCOUNT='NT AUTHORITY\System' /SQLSYSADMINACCOUNTS='BUILTIN\ADMINISTRATORS' /TCPENABLED=1 /NPENABLED=0 /IACCEPTSQLSERVERLICENSETERMS
 
         Write-Host "Configuring SQL Express ..."
         stop-service MSSQL`$SQLEXPRESS
 
-        $InstancePath = "HKLM:\software\microsoft\microsoft sql server\mssql14.SQLEXPRESS\mssqlserver"
+        $InstancePath = "HKLM:\software\microsoft\microsoft sql server\mssql$MajorVersion.SQLEXPRESS\mssqlserver"
         $SuperSocketNetLibPath = "$InstancePath\supersocketnetlib"
         set-itemproperty -path "$SuperSocketNetLibPath\tcp\ipall" -name tcpdynamicports -value ''
         set-itemproperty -path "$SuperSocketNetLibPath\tcp\ipall" -name tcpport -value 1433
