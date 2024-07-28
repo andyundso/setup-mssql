@@ -60,3 +60,4 @@ jobs:
         env:
           FORCE_ENCRYPTION: ${{ matrix.force-encryption }}
           SA_PASSWORD: "bHuZH81%cGC6"
+          VERSION: ${{ matrix.version }}
