@@ -13,10 +13,12 @@ inputs:
     default: "false"
   sa-password:
     description: "The SA password for the SQL instance"
-    required: true
+    required: false
+    default: "bHuZH81%cGC6"
   version:
     description: "The version of the SQL instance"
-    required: true
+    required: false
+    default: "2022"
 runs:
   using: "composite"
   steps:
