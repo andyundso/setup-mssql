@@ -3,7 +3,7 @@ param (
     [string[]]$Components,
     [bool]$ForceEncryption,
     [string]$SaPassword,
-    [ValidateSet("2017", "2019")]
+    [ValidateSet("2017", "2019", "2022")]
     [string]$Version
 )
 
@@ -101,8 +101,15 @@ forceencryption = 1
             $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/var/opt/mssql/mssql.pem -v /opt/mssql/mssql.key:/var/opt/mssql/mssql.key"
         }
 
+        if ($Version -Eq "2022") {
+            $ToolsPath = "/opt/mssql-tools18"
+        }
+        else {
+            $ToolsPath = "/opt/mssql-tools"
+        }
+
         Write-Output "Starting a Docker Container"
-        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" -e `"MSSQL_PID=Express`" --health-cmd=`"/opt/mssql-tools/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-latest`""
+        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" -e `"MSSQL_PID=Express`" --health-cmd=`"$ToolsPath/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-latest`""
         Wait-ForContainer
     }
 
@@ -118,6 +125,10 @@ forceencryption = 1
             "2019" {
                 $DownloadUrl = "https://download.microsoft.com/download/7/c/1/7c14e92e-bdcb-4f89-b7cf-93543e7112d1/SQLEXPR_x64_ENU.exe"
                 $MajorVersion = 15
+            }
+            "2022" {
+                $DownloadUrl = "https://download.microsoft.com/download/3/8/d/38de7036-2433-4207-8eae-06e247e17b25/SQLEXPR_x64_ENU.exe"
+                $MajorVersion = 16
             }
         }
 
