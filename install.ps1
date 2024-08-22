@@ -26,6 +26,7 @@ function Wait-ForContainer {
         elseif ((Get-Date) -gt $startTime.AddSeconds($timeout)) {
             Write-Host "Timed out waiting for container '$containerName' to be healthy."
             & docker logs sql
+            & docker inspect --format "{{json .State.Health }}" sql
             exit 1
         }
 
