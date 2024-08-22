@@ -26,6 +26,7 @@ function Wait-ForContainer {
         elseif ((Get-Date) -gt $startTime.AddSeconds($timeout)) {
             Write-Host "Timed out waiting for container '$containerName' to be healthy."
             & docker logs sql
+            & docker inspect --format "{{json .State.Health }}" sql
             exit 1
         }
 
@@ -101,7 +102,7 @@ forceencryption = 1
             $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/var/opt/mssql/mssql.pem -v /opt/mssql/mssql.key:/var/opt/mssql/mssql.key"
         }
 
-        if ($Version -Eq "2022") {
+        if ($Version -ne "2017") {
             $ToolsPath = "/opt/mssql-tools18"
         }
         else {
