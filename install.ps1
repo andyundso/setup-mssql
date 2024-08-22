@@ -102,7 +102,7 @@ forceencryption = 1
             $AdditionalContainerConfiguration = "-v /opt/mssql/mssql.conf:/var/opt/mssql/mssql.conf -v /opt/mssql/mssql.pem:/var/opt/mssql/mssql.pem -v /opt/mssql/mssql.key:/var/opt/mssql/mssql.key"
         }
 
-        if ($Version -Eq "2022") {
+        if ($Version -ne "2017") {
             $ToolsPath = "/opt/mssql-tools18"
         }
         else {
