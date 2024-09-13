@@ -109,8 +109,20 @@ forceencryption = 1
             $ToolsPath = "/opt/mssql-tools"
         }
 
+        switch($Version) {
+            "2017" {
+                $Tag = "CU31-GDR2-ubuntu-18.04"
+            }
+            "2019" {
+                $Tag = "CU28-ubuntu-20.04"
+            }
+            "2022" {
+                $Tag = "CU14-ubuntu-22.04"
+            }
+        }
+
         Write-Output "Starting a Docker Container"
-        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" -e `"MSSQL_PID=Express`" --health-cmd=`"$ToolsPath/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-latest`""
+        Invoke-Expression "docker run --name=`"sql`" -e `"ACCEPT_EULA=Y`"-e `"SA_PASSWORD=$SaPassword`" -e `"MSSQL_PID=Express`" --health-cmd=`"$ToolsPath/bin/sqlcmd -C -S localhost -U sa -P '$SaPassword' -Q 'SELECT 1' -b -o /dev/null`" --health-start-period=`"10s`" --health-retries=3 --health-interval=`"10s`" -p 1433:1433 $AdditionalContainerConfiguration -d `"mcr.microsoft.com/mssql/server:$Version-$Tag`""
         Wait-ForContainer
     }
 
