@@ -3,6 +3,8 @@ name: Continuous Integration
 on:
   pull_request:
   push:
+  schedule:
+    - cron: "30 8 * * 1"
 
 permissions:
   contents: read
