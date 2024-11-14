@@ -114,10 +114,10 @@ forceencryption = 1
                 $Tag = "CU31-GDR2-ubuntu-18.04"
             }
             "2019" {
-                $Tag = "CU28-ubuntu-20.04"
+                $Tag = "CU29-GDR1-ubuntu-20.04"
             }
             "2022" {
-                $Tag = "CU14-ubuntu-22.04"
+                $Tag = "CU15-GDR2-ubuntu-22.04"
             }
         }
 
