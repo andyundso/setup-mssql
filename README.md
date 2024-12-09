@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup MSSQL
-        uses: andyundso/setup-mssql@v1
+        uses: rails-sqlserver/setup-mssql@v1
         with:
           components: sqlcmd,sqlengine
           force-encryption: true
